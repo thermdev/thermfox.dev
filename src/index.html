@@ -143,15 +143,24 @@
     </footer>
   </div>
 <script>
-// Avatar chaos: runs from mouse on desktop, bounces everywhere on phone shake!
+// Avatar chaos: runs from mouse on desktop, gravity + bouncy madness on phone shake!
 document.addEventListener('DOMContentLoaded', () => {
   const avatar = document.querySelector('.avatar');
   if (!avatar) return;
 
   let isScared = false;
   let timeoutId = null;
-  let shakeTimeout = null;
-  let bounceInterval = null;
+  let animationFrame = null;
+
+  // Physics constants
+  const GRAVITY = 0.45;         // pixels per frame²
+  const BOUNCE_DAMPING = 0.75;  // lose 25% energy on bounce
+  const FRICTION = 0.98;        // slight air resistance
+
+  let velocityX = 0;
+  let velocityY = 0;
+  let posX = window.innerWidth / 2;
+  let posY = 100; // starting near top
 
   // === Desktop: Run away from cursor after first click ===
   avatar.addEventListener('click', (e) => {
@@ -190,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
       avatar.style.position = 'fixed';
       avatar.style.left = `${newX - rect.width / 2}px`;
       avatar.style.top = `${newY - rect.height / 2}px`;
-      avatar.style.transform = 'scale(1.15) rotate(10deg)'; // extra cute tilt
+      avatar.style.transform = 'scale(1.15) rotate(10deg)';
 
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
@@ -199,9 +208,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // === Mobile: Shake phone → bouncy chaos mode! ===
+  // === Mobile: Shake phone → gravity + bouncy physics chaos! ===
   if (window.DeviceMotionEvent) {
-    // iOS 13+ requires user permission (we request it on first interaction)
     let permissionGranted = false;
 
     const requestMotionPermission = () => {
@@ -215,62 +223,104 @@ document.addEventListener('DOMContentLoaded', () => {
           })
           .catch(console.error);
       } else {
-        // Android / older devices: no permission needed
         permissionGranted = true;
         window.addEventListener('devicemotion', handleShake);
       }
     };
 
-    // Start listening after first touch/click anywhere (better UX)
+    // Request permission on first interaction
     document.body.addEventListener('click', requestMotionPermission, { once: true });
 
     function handleShake(event) {
       if (!permissionGranted) return;
 
-      const acceleration = event.accelerationIncludingGravity;
-      if (!acceleration) return;
+      const acc = event.accelerationIncludingGravity;
+      if (!acc) return;
 
-      const shakeStrength = Math.abs(acceleration.x) + Math.abs(acceleration.y) + Math.abs(acceleration.z);
+      const shakeStrength = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
 
-      // Shake threshold ~15–20 usually works well
       if (shakeStrength > 18) {
-        startBouncing();
+        startGravityChaos();
       }
     }
 
-    function startBouncing() {
-      if (bounceInterval) return; // already bouncing
+    function startGravityChaos() {
+      if (animationFrame) cancelAnimationFrame(animationFrame);
 
-      avatar.style.transition = 'all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'; // bouncy easing
+      // Reset physics
+      velocityX = (Math.random() - 0.5) * 25; // random horizontal kick
+      velocityY = - (15 + Math.random() * 20); // strong upward launch
+      posX = window.innerWidth / 2;
+      posY = 100;
+
       avatar.style.position = 'fixed';
+      avatar.style.transition = 'none'; // smooth physics, no transition
+      avatar.style.left = `${posX - 70}px`; // half of 140px width
+      avatar.style.top = `${posY - 70}px`;
 
-      // Go wild for 6 seconds
-      let bounces = 0;
-      const maxBounces = 12; // ~6 seconds at ~500ms per bounce
+      // Optional cute scream
+      // alert("eek!! i'm flyingggg~!! :3c");
 
-      bounceInterval = setInterval(() => {
-        if (bounces >= maxBounces) {
-          clearInterval(bounceInterval);
-          bounceInterval = null;
-          avatar.style.transform = 'scale(1) rotate(0deg)';
+      let chaosEndTime = Date.now() + 8000; // 8 seconds of madness
+
+      function updatePhysics() {
+        if (Date.now() > chaosEndTime) {
+          // Calm down: slowly return to center-top
+          avatar.style.transition = 'all 1.2s ease-out';
           avatar.style.left = '50%';
-          avatar.style.top = '20%'; // back to almost original spot
-          avatar.style.transform = 'translate(-50%, 0)';
+          avatar.style.top = '20%';
+          avatar.style.transform = 'translate(-50%, 0) scale(1) rotate(0deg)';
           return;
         }
 
-        const randomX = Math.random() * (window.innerWidth - 200) + 100;
-        const randomY = Math.random() * (window.innerHeight - 200) + 100;
+        // Apply gravity
+        velocityY += GRAVITY;
 
-        avatar.style.left = `${randomX}px`;
-        avatar.style.top = `${randomY}px`;
-        avatar.style.transform = `scale(${1 + Math.random() * 0.4}) rotate(${Math.random() * 40 - 20}deg)`;
+        // Update position
+        posX += velocityX;
+        posY += velocityY;
 
-        bounces++;
-      }, 500); // change position every 0.5s
+        // Air friction
+        velocityX *= FRICTION;
+        velocityY *= FRICTION;
 
-      // Optional cute sound or extra alert
-      // alert("eek!! stop shaking meeee~!! :3c");
+        // Bounce off bottom
+        const bottom = window.innerHeight - 140; // avatar height
+        if (posY > bottom) {
+          posY = bottom;
+          velocityY *= -BOUNCE_DAMPING; // reverse + lose energy
+          velocityX *= 0.9; // lose a bit of horizontal too
+          // Cute squish on bounce
+          avatar.style.transform = 'scale(1.1, 0.85) rotate(' + (Math.random() * 20 - 10) + 'deg)';
+          setTimeout(() => {
+            avatar.style.transform = 'scale(1) rotate(0deg)';
+          }, 150);
+        }
+
+        // Bounce off sides
+        if (posX < 70) {
+          posX = 70;
+          velocityX = -velocityX * BOUNCE_DAMPING;
+        }
+        if (posX > window.innerWidth - 70) {
+          posX = window.innerWidth - 70;
+          velocityX = -velocityX * BOUNCE_DAMPING;
+        }
+
+        // Occasionally add random "wind" kicks
+        if (Math.random() < 0.03) {
+          velocityX += (Math.random() - 0.5) * 12;
+          velocityY -= Math.random() * 8; // little upward boosts
+        }
+
+        // Apply position
+        avatar.style.left = `${posX - 70}px`;
+        avatar.style.top = `${posY - 70}px`;
+
+        animationFrame = requestAnimationFrame(updatePhysics);
+      }
+
+      updatePhysics();
     }
   }
 });
