@@ -318,19 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
       avatar.style.left = `${posX - 70}px`;
       avatar.style.top = `${posY - 70}px`;
 
-      // Calm down only when very slow and time passed
-      if (Date.now() > chaosEndTime && Math.abs(velocityX) < 2 && Math.abs(velocityY) < 2) {
-        avatar.style.transition = 'all 1.8s ease-out';
-        avatar.style.left = '50%';
-        avatar.style.top = '20%';
-        avatar.style.transform = 'translate(-50%, 0) scale(1) rotate(0deg)';
-        posX = window.innerWidth / 2;
-        posY = 100;
-        velocityX = 0;
-        velocityY = 0;
-        return;
-      }
-
       animationFrame = requestAnimationFrame(update);
     }
 
