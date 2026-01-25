@@ -143,25 +143,26 @@
     </footer>
   </div>
 <script>
-// Make the avatar run away from the cursor after first click
+// Avatar chaos: runs from mouse on desktop, bounces everywhere on phone shake!
 document.addEventListener('DOMContentLoaded', () => {
   const avatar = document.querySelector('.avatar');
   if (!avatar) return;
 
-  let isScared = false;           // only activates after first click
+  let isScared = false;
   let timeoutId = null;
+  let shakeTimeout = null;
+  let bounceInterval = null;
 
-  // When user clicks the avatar → it becomes "scared"
+  // === Desktop: Run away from cursor after first click ===
   avatar.addEventListener('click', (e) => {
     if (!isScared) {
       isScared = true;
       avatar.style.transition = 'all 0.4s ease-out';
-      avatar.style.cursor = 'default'; // no more pointer cursor
-      alert("oh no you scared me!! >.<"); // optional cute message
+      avatar.style.cursor = 'default';
+      alert("oh no you scared me!! >.<");
     }
   });
 
-  // Move away when mouse gets too close (only after scared)
   document.addEventListener('mousemove', (e) => {
     if (!isScared) return;
 
@@ -172,37 +173,106 @@ document.addEventListener('DOMContentLoaded', () => {
     const mouseX = e.clientX;
     const mouseY = e.clientY;
 
-    // Distance between mouse and avatar center
     const dx = mouseX - avatarX;
     const dy = mouseY - avatarY;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // If mouse is closer than ~120px → RUN AWAY
     if (distance < 120) {
-      // Calculate direction away from mouse
       const angle = Math.atan2(dy, dx);
-      const runDistance = 180; // how far to jump each time
+      const runDistance = 180;
 
       let newX = avatarX - Math.cos(angle) * runDistance;
       let newY = avatarY - Math.sin(angle) * runDistance;
 
-      // Keep it inside viewport (with some margin)
       newX = Math.max(100, Math.min(window.innerWidth - 100, newX));
       newY = Math.max(100, Math.min(window.innerHeight - 100, newY));
 
-      // Apply position
       avatar.style.position = 'fixed';
       avatar.style.left = `${newX - rect.width / 2}px`;
       avatar.style.top = `${newY - rect.height / 2}px`;
-      avatar.style.transform = 'scale(1.1)'; // little bounce effect
+      avatar.style.transform = 'scale(1.15) rotate(10deg)'; // extra cute tilt
 
-      // Reset scale after a tiny delay
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        avatar.style.transform = 'scale(1)';
+        avatar.style.transform = 'scale(1) rotate(0deg)';
       }, 300);
     }
   });
+
+  // === Mobile: Shake phone → bouncy chaos mode! ===
+  if (window.DeviceMotionEvent) {
+    // iOS 13+ requires user permission (we request it on first interaction)
+    let permissionGranted = false;
+
+    const requestMotionPermission = () => {
+      if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission()
+          .then(permissionState => {
+            if (permissionState === 'granted') {
+              permissionGranted = true;
+              window.addEventListener('devicemotion', handleShake);
+            }
+          })
+          .catch(console.error);
+      } else {
+        // Android / older devices: no permission needed
+        permissionGranted = true;
+        window.addEventListener('devicemotion', handleShake);
+      }
+    };
+
+    // Start listening after first touch/click anywhere (better UX)
+    document.body.addEventListener('click', requestMotionPermission, { once: true });
+
+    function handleShake(event) {
+      if (!permissionGranted) return;
+
+      const acceleration = event.accelerationIncludingGravity;
+      if (!acceleration) return;
+
+      const shakeStrength = Math.abs(acceleration.x) + Math.abs(acceleration.y) + Math.abs(acceleration.z);
+
+      // Shake threshold ~15–20 usually works well
+      if (shakeStrength > 18) {
+        startBouncing();
+      }
+    }
+
+    function startBouncing() {
+      if (bounceInterval) return; // already bouncing
+
+      avatar.style.transition = 'all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'; // bouncy easing
+      avatar.style.position = 'fixed';
+
+      // Go wild for 6 seconds
+      let bounces = 0;
+      const maxBounces = 12; // ~6 seconds at ~500ms per bounce
+
+      bounceInterval = setInterval(() => {
+        if (bounces >= maxBounces) {
+          clearInterval(bounceInterval);
+          bounceInterval = null;
+          avatar.style.transform = 'scale(1) rotate(0deg)';
+          avatar.style.left = '50%';
+          avatar.style.top = '20%'; // back to almost original spot
+          avatar.style.transform = 'translate(-50%, 0)';
+          return;
+        }
+
+        const randomX = Math.random() * (window.innerWidth - 200) + 100;
+        const randomY = Math.random() * (window.innerHeight - 200) + 100;
+
+        avatar.style.left = `${randomX}px`;
+        avatar.style.top = `${randomY}px`;
+        avatar.style.transform = `scale(${1 + Math.random() * 0.4}) rotate(${Math.random() * 40 - 20}deg)`;
+
+        bounces++;
+      }, 500); // change position every 0.5s
+
+      // Optional cute sound or extra alert
+      // alert("eek!! stop shaking meeee~!! :3c");
+    }
+  }
 });
 </script>
 </body>
