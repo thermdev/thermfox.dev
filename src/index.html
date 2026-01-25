@@ -40,7 +40,7 @@
       height: 140px;
       border-radius: 50%;
       border: 4px solid var(--accent);
-      margin-bottom: 1.5rem;
+      margin-bottom: 3rem;
       object-fit: cover;
       background: #333;
     }
@@ -162,79 +162,88 @@
 </style>
   </div>
 <script>
-// Avatar chaos: gravity physics + strong desktop escape jumps + mobile shake frenzy!
+// Avatar chaos: gravity physics + strong desktop escape jumps + mobile tilt + shake frenzy!
+
 document.addEventListener('DOMContentLoaded', () => {
   const avatar = document.querySelector('.avatar');
   if (!avatar) return;
 
   let isScared = false;
   let animationFrame = null;
-  let chaosEndTime = Date.now() + 30000; // long default so it doesn't calm too fast
 
-  // Physics constants (tuned for better liveliness)
-  const GRAVITY = 0.48;
-  const BOUNCE_DAMPING = 0.78; // higher = more bouncy
-  const FRICTION = 0.99;
-  const JUMP_FORCE = -22;      // stronger upward jumps
-  const REPEL_FORCE = 28;      // stronger push away from cursor
+  // Physics constants (tuned down a bit for calmer feel)
+  const GRAVITY         = 0.48;
+  const BOUNCE_DAMPING  = 0.78;
+  const FRICTION        = 0.99;
+  const JUMP_FORCE      = -22;   // was -1 — too weak
+  const REPEL_FORCE     = 28;    // was 2 — too weak
+  const VELOCITY_THRESHOLD = 0.3;
 
+  // We'll store original position for reference
+  const originalRect = avatar.getBoundingClientRect();
   let posX = window.innerWidth / 2;
-  let posY = 100;
+  let posY = originalRect.top + 70; // center of avatar in viewport coords
+
   let velocityX = 0;
   let velocityY = 0;
 
-  // Setup avatar for physics
-  avatar.style.position = 'fixed';
-  avatar.style.left = `${posX - 70}px`;
-  avatar.style.top = `${posY - 70}px`;
-  avatar.style.transition = 'none';
+  // Keep it in normal flow until scared
+  // avatar.style.position = 'fixed';   ← COMMENT THIS OUT / REMOVE
 
-  // === Trigger scared mode ===
+  // === Trigger scared mode & start physics ===
   const scareAvatar = () => {
     if (isScared) return;
     isScared = true;
     avatar.style.cursor = 'default';
     alert("oh no you scared me!! >.<");
+
+    // NOW make it fixed and take control
+    avatar.style.position = 'fixed';
+    avatar.style.left   = `${posX - 70}px`;
+    avatar.style.top    = `${posY - 70}px`;
+    avatar.style.transition = 'none';
+
     startPhysics();
   };
 
   avatar.addEventListener('click', scareAvatar);
 
-  // Mobile shake
-  if (window.DeviceMotionEvent) {
-    let permissionGranted = false;
+  // Mobile: request motion permission...
+  let motionPermissionGranted = false;
+  let tiltGravityX = 0;
+  let tiltGravityY = 0;
 
-    const requestMotionPermission = () => {
-      if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission()
-          .then(permissionState => {
-            if (permissionState === 'granted') {
-              permissionGranted = true;
-              window.addEventListener('devicemotion', handleShake);
-            }
-          })
-          .catch(console.error);
-      } else {
-        permissionGranted = true;
-        window.addEventListener('devicemotion', handleShake);
-      }
-    };
+  const requestMotionPermission = () => {
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            motionPermissionGranted = true;
+            window.addEventListener('devicemotion', handleDeviceMotion);
+          }
+        })
+        .catch(console.error);
+    } else {
+      motionPermissionGranted = true;
+      window.addEventListener('devicemotion', handleDeviceMotion);
+    }
+  };
 
-    document.body.addEventListener('click', requestMotionPermission, { once: true });
+  document.body.addEventListener('click', requestMotionPermission, { once: true });
+  document.body.addEventListener('touchstart', requestMotionPermission, { once: true });
 
-    function handleShake(event) {
-      if (!permissionGranted) return;
-      const acc = event.accelerationIncludingGravity;
-      if (!acc) return;
+  function handleDeviceMotion(event) {
+    if (!motionPermissionGranted) return;
+    const acc = event.accelerationIncludingGravity;
+    if (!acc) return;
 
-      const shakeStrength = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+    tiltGravityX = acc.x * 0.8 || 0;
+    tiltGravityY = -acc.y * 0.8 || 0;
 
-      if (shakeStrength > 18) {
-        scareAvatar();
-        velocityX += (Math.random() - 0.5) * 50;
-        velocityY = - (30 + Math.random() * 35);
-        chaosEndTime = Date.now() + 12000;
-      }
+    const shakeStrength = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+    if (shakeStrength > 18 && isScared) {
+      velocityX += (Math.random() - 0.5) * 60;
+      velocityY += -(35 + Math.random() * 40);
     }
   }
 
@@ -243,18 +252,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (animationFrame) cancelAnimationFrame(animationFrame);
 
     function update() {
-      // Gravity
-      velocityY += GRAVITY;
+      velocityY += GRAVITY + tiltGravityY * 0.05;
+      velocityX += tiltGravityX * 0.05;
 
-      // Update position
       posX += velocityX;
       posY += velocityY;
 
-      // Friction
       velocityX *= FRICTION;
       velocityY *= FRICTION;
 
-      // === Desktop: strong escape when cursor close ===
+      // Desktop repel
       if (isScared && !('ontouchstart' in window)) {
         const rect = avatar.getBoundingClientRect();
         const avatarCenterX = rect.left + 70;
@@ -267,28 +274,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const dy = mouseY - avatarCenterY;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance < 160) { // larger trigger zone
+        if (distance < 160) {
           const angle = Math.atan2(dy, dx);
-
-          // Strong repel + guaranteed upward kick
           velocityX -= Math.cos(angle) * REPEL_FORCE;
-          velocityY -= Math.sin(angle) * REPEL_FORCE * 0.7; // slightly less vertical repel
-
-          // Always add upward jump when close
+          velocityY -= Math.sin(angle) * REPEL_FORCE * 0.7;
           velocityY += JUMP_FORCE * (0.8 + Math.random() * 0.5);
 
-          // Extra randomness to prevent predictable paths
-          if (Math.random() < 0.5) {
-            velocityX += (Math.random() - 0.5) * 15;
-          }
+          if (Math.random() < 0.5) velocityX += (Math.random() - 0.5) * 15;
 
-          // Cute squish on "jump"
           avatar.style.transform = `scale(1.15, 0.85) rotate(${Math.random() * 35 - 17}deg)`;
           setTimeout(() => avatar.style.transform = 'scale(1) rotate(0deg)', 140);
         }
       }
 
-      // Bounce bottom
       const bottom = window.innerHeight - 140;
       if (posY > bottom) {
         posY = bottom;
@@ -298,25 +296,31 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => avatar.style.transform = 'scale(1) rotate(0deg)', 120);
       }
 
-      // Bounce top
       if (posY < 0) {
         posY = 0;
         velocityY = -velocityY * BOUNCE_DAMPING;
       }
 
-      // Bounce sides
       if (posX < 70) {
         posX = 70;
-        velocityX = Math.abs(velocityX) * BOUNCE_DAMPING; // always push inward
+        velocityX = Math.abs(velocityX) * BOUNCE_DAMPING;
       }
       if (posX > window.innerWidth - 70) {
         posX = window.innerWidth - 70;
         velocityX = -Math.abs(velocityX) * BOUNCE_DAMPING;
       }
 
-      // Apply position
       avatar.style.left = `${posX - 70}px`;
-      avatar.style.top = `${posY - 70}px`;
+      avatar.style.top  = `${posY - 70}px`;
+
+      // Snap to rest but keep loop alive
+      if (Math.abs(velocityX) < VELOCITY_THRESHOLD && 
+          Math.abs(velocityY) < VELOCITY_THRESHOLD && 
+          Math.abs(posY - bottom) < 5) {
+        velocityX = 0;
+        velocityY = 0;
+        posY = bottom;
+      }
 
       animationFrame = requestAnimationFrame(update);
     }
@@ -324,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
     update();
   }
 
-  // Track mouse
+  // Mouse tracking
   let mousePosX = 0;
   let mousePosY = 0;
   document.addEventListener('mousemove', (e) => {
