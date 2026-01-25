@@ -98,6 +98,10 @@
       .social-link { font-size: 1.1rem; padding: 1rem 1.2rem; }
       .social-icon { width: 28px; height: 28px; }
     }
+    /* New: make icons clickable without affecting link */
+    .social-link i {
+      pointer-events: auto;
+    }
   </style>
 </head>
 <body>
@@ -162,57 +166,100 @@
 </style>
   </div>
 <script>
-// Avatar chaos: gravity physics + strong desktop escape jumps + mobile tilt + shake frenzy!
+// Avatar & Telegram chaos: gravity physics + desktop escape + mobile tilt/shake + collisions!
 
 document.addEventListener('DOMContentLoaded', () => {
   const avatar = document.querySelector('.avatar');
   if (!avatar) return;
 
-  let isScared = false;
-  let animationFrame = null;
+  const telegramIcon = document.querySelector('.fab.fa-telegram');
+  if (!telegramIcon) return;
 
-  // Physics constants (tuned down a bit for calmer feel)
-  const GRAVITY         = 0.48;
-  const BOUNCE_DAMPING  = 0.78;
-  const FRICTION        = 0.99;
-  const JUMP_FORCE      = -22;   // was -1 — too weak
-  const REPEL_FORCE     = 28;    // was 2 — too weak
+  let objects = []; // Array of physics objects: {el, posX, posY, velX, velY, radius, isScared, hoverTimer}
+
+  // Physics constants
+  const GRAVITY = 0.48;
+  const BOUNCE_DAMPING = 1.0; // Perfect bounce (no energy loss)
+  const FRICTION = 1.0; // No air friction (perpetual motion)
+  const JUMP_FORCE = -2;
+  const REPEL_FORCE = 3;
+  const COLLISION_REPEL = 1.0; // Perfect elastic collision
   const VELOCITY_THRESHOLD = 0.3;
+  const HOVER_DELAY = 2000; // 2 seconds hover to scare Telegram
+  const ATTRACTION_STRENGTH = 0.0005; // Weak attraction for endless colliding
 
-  // We'll store original position for reference
-  const originalRect = avatar.getBoundingClientRect();
-  let posX = window.innerWidth / 2;
-  let posY = originalRect.top + 70; // center of avatar in viewport coords
+  let animationFrame = null;
+  let motionPermissionGranted = false;
+  let tiltGravityX = 0;
+  let tiltGravityY = 0;
+  let mousePosX = 0;
+  let mousePosY = 0;
 
-  let velocityX = 0;
-  let velocityY = 0;
+  // Setup avatar object
+  const avatarRect = avatar.getBoundingClientRect();
+  objects.push({
+    el: avatar,
+    posX: window.innerWidth / 2,
+    posY: avatarRect.top + 70, // Center Y
+    velX: 0,
+    velY: 0,
+    radius: 70, // Half of 140px
+    isScared: false,
+    hoverTimer: null
+  });
 
-  // Keep it in normal flow until scared
-  // avatar.style.position = 'fixed';   ← COMMENT THIS OUT / REMOVE
+  // Setup telegram object (smaller)
+  const telegramRect = telegramIcon.getBoundingClientRect();
+  objects.push({
+    el: telegramIcon,
+    posX: telegramRect.left + 16, // Center X (32px icon / 2)
+    posY: telegramRect.top + 16, // Center Y
+    velX: 0,
+    velY: 0,
+    radius: 16, // Half of 32px
+    isScared: false,
+    hoverTimer: null
+  });
 
-  // === Trigger scared mode & start physics ===
-  const scareAvatar = () => {
-    if (isScared) return;
-    isScared = true;
-    avatar.style.cursor = 'default';
-    alert("oh no you scared me!! >.<");
+  // === Scare functions ===
+  const scareObject = (obj) => {
+    if (obj.isScared) return;
+    obj.isScared = true;
+    obj.el.style.cursor = 'default';
 
-    // NOW make it fixed and take control
-    avatar.style.position = 'fixed';
-    avatar.style.left   = `${posX - 70}px`;
-    avatar.style.top    = `${posY - 70}px`;
-    avatar.style.transition = 'none';
+    // Alert only for avatar
+    if (obj.el === avatar) alert("oh no you scared me!! >.<");
+
+    // Make fixed and take control
+    obj.el.style.position = 'fixed';
+    obj.el.style.left = `${obj.posX - obj.radius}px`;
+    obj.el.style.top = `${obj.posY - obj.radius}px`;
+    obj.el.style.transition = 'none';
+
+    // Initial jump for telegram
+    if (obj.el === telegramIcon) {
+      obj.velY = JUMP_FORCE * 0.6; // Smaller jump
+      obj.velX = (Math.random() - 0.5) * 10;
+    }
 
     startPhysics();
   };
 
-  avatar.addEventListener('click', scareAvatar);
+  // Avatar: click to scare
+  avatar.addEventListener('click', () => scareObject(objects[0]));
 
-  // Mobile: request motion permission...
-  let motionPermissionGranted = false;
-  let tiltGravityX = 0;
-  let tiltGravityY = 0;
+  // Telegram: hover long enough to scare
+  telegramIcon.addEventListener('mouseenter', () => {
+    const obj = objects[1];
+    obj.hoverTimer = setTimeout(() => scareObject(obj), HOVER_DELAY);
+  });
 
+  telegramIcon.addEventListener('mouseleave', () => {
+    const obj = objects[1];
+    if (obj.hoverTimer) clearTimeout(obj.hoverTimer);
+  });
+
+  // Mobile motion permission
   const requestMotionPermission = () => {
     if (typeof DeviceMotionEvent.requestPermission === 'function') {
       DeviceMotionEvent.requestPermission()
@@ -241,86 +288,145 @@ document.addEventListener('DOMContentLoaded', () => {
     tiltGravityY = -acc.y * 0.8 || 0;
 
     const shakeStrength = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
-    if (shakeStrength > 18 && isScared) {
-      velocityX += (Math.random() - 0.5) * 60;
-      velocityY += -(35 + Math.random() * 40);
+    if (shakeStrength > 18) {
+      objects.forEach(obj => {
+        if (obj.isScared) {
+          obj.velX += (Math.random() - 0.5) * 60 * (obj.radius / 70); // Scale by size
+          obj.velY += -(35 + Math.random() * 40) * (obj.radius / 70);
+        }
+      });
     }
   }
+
+  // Mouse tracking
+  document.addEventListener('mousemove', (e) => {
+    mousePosX = e.clientX;
+    mousePosY = e.clientY;
+  });
 
   // === Main physics loop ===
   function startPhysics() {
     if (animationFrame) cancelAnimationFrame(animationFrame);
 
     function update() {
-      velocityY += GRAVITY + tiltGravityY * 0.05;
-      velocityX += tiltGravityX * 0.05;
+      const activeObjects = objects.filter(obj => obj.isScared);
 
-      posX += velocityX;
-      posY += velocityY;
+      if (activeObjects.length === 0) return; // No active? Stop
 
-      velocityX *= FRICTION;
-      velocityY *= FRICTION;
+      activeObjects.forEach(obj => {
+        // Gravity + tilt
+        obj.velY += GRAVITY + tiltGravityY * 0.05;
+        obj.velX += tiltGravityX * 0.05;
 
-      // Desktop repel
-      if (isScared && !('ontouchstart' in window)) {
-        const rect = avatar.getBoundingClientRect();
-        const avatarCenterX = rect.left + 70;
-        const avatarCenterY = rect.top + 70;
+        // Weak attraction to other objects (for endless colliding)
+        activeObjects.forEach(other => {
+          if (other !== obj) {
+            const dx = other.posX - obj.posX;
+            const dy = other.posY - obj.posY;
+            const distance = Math.sqrt(dx * dx + dy * dy) || 1; // Avoid div by zero
+            const force = ATTRACTION_STRENGTH * (obj.radius * other.radius) / (distance * distance); // Gravity-like
+            obj.velX += (dx / distance) * force;
+            obj.velY += (dy / distance) * force;
+          }
+        });
 
-        const mouseX = mousePosX || avatarCenterX;
-        const mouseY = mousePosY || avatarCenterY;
+        // Desktop repel from mouse (for both)
+        if (!('ontouchstart' in window)) {
+          const dx = mousePosX - obj.posX;
+          const dy = mousePosY - obj.posY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
 
-        const dx = mouseX - avatarCenterX;
-        const dy = mouseY - avatarCenterY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < 160 * (obj.radius / 70)) { // Scale zone by size
+            const angle = Math.atan2(dy, dx);
+            obj.velX -= Math.cos(angle) * REPEL_FORCE * (obj.radius / 70);
+            obj.velY -= Math.sin(angle) * REPEL_FORCE * 0.7 * (obj.radius / 70);
+            obj.velY += JUMP_FORCE * (0.8 + Math.random() * 0.5) * (obj.radius / 70);
 
-        if (distance < 160) {
-          const angle = Math.atan2(dy, dx);
-          velocityX -= Math.cos(angle) * REPEL_FORCE;
-          velocityY -= Math.sin(angle) * REPEL_FORCE * 0.7;
-          velocityY += JUMP_FORCE * (0.8 + Math.random() * 0.5);
+            if (Math.random() < 0.5) obj.velX += (Math.random() - 0.5) * 15 * (obj.radius / 70);
 
-          if (Math.random() < 0.5) velocityX += (Math.random() - 0.5) * 15;
+            // Squish effect
+            obj.el.style.transform = `scale(1.15, 0.85) rotate(${Math.random() * 35 - 17}deg)`;
+            setTimeout(() => obj.el.style.transform = 'scale(1) rotate(0deg)', 140);
+          }
+        }
 
-          avatar.style.transform = `scale(1.15, 0.85) rotate(${Math.random() * 35 - 17}deg)`;
-          setTimeout(() => avatar.style.transform = 'scale(1) rotate(0deg)', 140);
+        // Update position
+        obj.posX += obj.velX;
+        obj.posY += obj.velY;
+
+        // Friction (now 1.0 = no loss)
+        obj.velX *= FRICTION;
+        obj.velY *= FRICTION;
+
+        // Bounds
+        const bottom = window.innerHeight - obj.radius * 2;
+        if (obj.posY > bottom) {
+          obj.posY = bottom;
+          obj.velY *= -BOUNCE_DAMPING;
+          obj.velX *= FRICTION; // No extra damping on X
+          obj.el.style.transform = `scale(1.12, 0.82) rotate(${Math.random() * 30 - 15}deg)`;
+          setTimeout(() => obj.el.style.transform = 'scale(1) rotate(0deg)', 120);
+        }
+
+        if (obj.posY < 0) {
+          obj.posY = 0;
+          obj.velY = -obj.velY * BOUNCE_DAMPING;
+        }
+
+        if (obj.posX < obj.radius) {
+          obj.posX = obj.radius;
+          obj.velX = Math.abs(obj.velX) * BOUNCE_DAMPING;
+        }
+
+        if (obj.posX > window.innerWidth - obj.radius) {
+          obj.posX = window.innerWidth - obj.radius;
+          obj.velX = -Math.abs(obj.velX) * BOUNCE_DAMPING;
+        }
+      });
+
+      // Collision detection between objects
+      for (let i = 0; i < activeObjects.length; i++) {
+        for (let j = i + 1; j < activeObjects.length; j++) {
+          const objA = activeObjects[i];
+          const objB = activeObjects[j];
+
+          const dx = objB.posX - objA.posX;
+          const dy = objB.posY - objA.posY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < objA.radius + objB.radius) {
+            // Collision! Repel/bounce
+            const angle = Math.atan2(dy, dx);
+            const overlap = (objA.radius + objB.radius) - distance;
+
+            // Separate them
+            objA.posX -= Math.cos(angle) * overlap / 2;
+            objA.posY -= Math.sin(angle) * overlap / 2;
+            objB.posX += Math.cos(angle) * overlap / 2;
+            objB.posY += Math.sin(angle) * overlap / 2;
+
+            // Exchange velocities (elastic collision simplified)
+            const velAX = objA.velX;
+            const velAY = objA.velY;
+            objA.velX = objB.velX * COLLISION_REPEL;
+            objA.velY = objB.velY * COLLISION_REPEL;
+            objB.velX = velAX * COLLISION_REPEL;
+            objB.velY = velAY * COLLISION_REPEL;
+
+            // Squish on collision
+            objA.el.style.transform = `scale(1.1, 0.9) rotate(${Math.random() * 20 - 10}deg)`;
+            setTimeout(() => objA.el.style.transform = 'scale(1) rotate(0deg)', 120);
+            objB.el.style.transform = `scale(1.1, 0.9) rotate(${Math.random() * 20 - 10}deg)`;
+            setTimeout(() => objB.el.style.transform = 'scale(1) rotate(0deg)', 120);
+          }
         }
       }
 
-      const bottom = window.innerHeight - 140;
-      if (posY > bottom) {
-        posY = bottom;
-        velocityY *= -BOUNCE_DAMPING;
-        velocityX *= 0.94;
-        avatar.style.transform = `scale(1.12, 0.82) rotate(${Math.random() * 30 - 15}deg)`;
-        setTimeout(() => avatar.style.transform = 'scale(1) rotate(0deg)', 120);
-      }
-
-      if (posY < 0) {
-        posY = 0;
-        velocityY = -velocityY * BOUNCE_DAMPING;
-      }
-
-      if (posX < 70) {
-        posX = 70;
-        velocityX = Math.abs(velocityX) * BOUNCE_DAMPING;
-      }
-      if (posX > window.innerWidth - 70) {
-        posX = window.innerWidth - 70;
-        velocityX = -Math.abs(velocityX) * BOUNCE_DAMPING;
-      }
-
-      avatar.style.left = `${posX - 70}px`;
-      avatar.style.top  = `${posY - 70}px`;
-
-      // Snap to rest but keep loop alive
-      if (Math.abs(velocityX) < VELOCITY_THRESHOLD && 
-          Math.abs(velocityY) < VELOCITY_THRESHOLD && 
-          Math.abs(posY - bottom) < 5) {
-        velocityX = 0;
-        velocityY = 0;
-        posY = bottom;
-      }
+      // Apply positions
+      activeObjects.forEach(obj => {
+        obj.el.style.left = `${obj.posX - obj.radius}px`;
+        obj.el.style.top = `${obj.posY - obj.radius}px`;
+      });
 
       animationFrame = requestAnimationFrame(update);
     }
@@ -328,18 +434,12 @@ document.addEventListener('DOMContentLoaded', () => {
     update();
   }
 
-  // Mouse tracking
-  let mousePosX = 0;
-  let mousePosY = 0;
-  document.addEventListener('mousemove', (e) => {
-    mousePosX = e.clientX;
-    mousePosY = e.clientY;
-  });
-
   // Resize handling
   window.addEventListener('resize', () => {
-    posX = Math.max(70, Math.min(window.innerWidth - 70, posX));
-    posY = Math.max(0, Math.min(window.innerHeight - 140, posY));
+    objects.forEach(obj => {
+      obj.posX = Math.max(obj.radius, Math.min(window.innerWidth - obj.radius, obj.posX));
+      obj.posY = Math.max(0, Math.min(window.innerHeight - obj.radius * 2, obj.posY));
+    });
   });
 });
 </script>
