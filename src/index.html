@@ -142,5 +142,68 @@
       Made with ❤️ by @thermfox • © 2026
     </footer>
   </div>
+<script>
+// Make the avatar run away from the cursor after first click
+document.addEventListener('DOMContentLoaded', () => {
+  const avatar = document.querySelector('.avatar');
+  if (!avatar) return;
+
+  let isScared = false;           // only activates after first click
+  let timeoutId = null;
+
+  // When user clicks the avatar → it becomes "scared"
+  avatar.addEventListener('click', (e) => {
+    if (!isScared) {
+      isScared = true;
+      avatar.style.transition = 'all 0.4s ease-out';
+      avatar.style.cursor = 'default'; // no more pointer cursor
+      alert("oh no you scared me!! >.<"); // optional cute message
+    }
+  });
+
+  // Move away when mouse gets too close (only after scared)
+  document.addEventListener('mousemove', (e) => {
+    if (!isScared) return;
+
+    const rect = avatar.getBoundingClientRect();
+    const avatarX = rect.left + rect.width / 2;
+    const avatarY = rect.top + rect.height / 2;
+
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
+
+    // Distance between mouse and avatar center
+    const dx = mouseX - avatarX;
+    const dy = mouseY - avatarY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // If mouse is closer than ~120px → RUN AWAY
+    if (distance < 120) {
+      // Calculate direction away from mouse
+      const angle = Math.atan2(dy, dx);
+      const runDistance = 180; // how far to jump each time
+
+      let newX = avatarX - Math.cos(angle) * runDistance;
+      let newY = avatarY - Math.sin(angle) * runDistance;
+
+      // Keep it inside viewport (with some margin)
+      newX = Math.max(100, Math.min(window.innerWidth - 100, newX));
+      newY = Math.max(100, Math.min(window.innerHeight - 100, newY));
+
+      // Apply position
+      avatar.style.position = 'fixed';
+      avatar.style.left = `${newX - rect.width / 2}px`;
+      avatar.style.top = `${newY - rect.height / 2}px`;
+      avatar.style.transform = 'scale(1.1)'; // little bounce effect
+
+      // Reset scale after a tiny delay
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        avatar.style.transform = 'scale(1)';
+      }, 300);
+    }
+  });
+});
+</script>
 </body>
 </html>
