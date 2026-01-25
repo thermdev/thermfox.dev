@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>@thermfox | Socials</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --text: #e6edf3;
+      --accent: #58a6ff;
+      --card: #161b22;
+      --hover: #1f6feb;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .container {
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+    }
+    .avatar {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      border: 4px solid var(--accent);
+      margin-bottom: 1.5rem;
+      object-fit: cover;
+      background: #333;
+    }
+    h1 {
+      font-size: 2.8rem;
+      margin-bottom: 0.5rem;
+      color: var(--accent);
+    }
+    .bio {
+      font-size: 1.3rem;
+      margin: 0.5rem 0 2rem;
+      opacity: 0.9;
+    }
+    .socials {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      margin: 2rem 0;
+    }
+    .social-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      text-decoration: none;
+      color: var(--text);
+      transition: all 0.3s ease;
+      padding: 1.2rem 1.5rem;
+      border-radius: 12px;
+      background: var(--card);
+      font-size: 1.2rem;
+      font-weight: 500;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .social-link:hover {
+      transform: translateY(-4px);
+      background: var(--hover);
+      color: white;
+    }
+    .social-icon {
+      width: 32px;
+      height: 32px;
+      fill: currentColor;
+    }
+    .social-link i {
+      font-size: 1.8rem;
+    }
+    footer {
+      margin-top: 3rem;
+      font-size: 0.9rem;
+      opacity: 0.7;
+    }
+    @media (max-width: 500px) {
+      h1 { font-size: 2.4rem; }
+      .social-link { font-size: 1.1rem; padding: 1rem 1.2rem; }
+      .social-icon { width: 28px; height: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="https://ugc.production.linktr.ee/01e28a2c-d484-4c65-baff-fbbf42a25160_thermite-kagura.png?io=true&size=avatar-v3_0" 
+         alt="@thermfox Avatar" class="avatar">
+
+    <h1>@thermfox</h1>
+    <p class="bio">hai :3 have my socials</p>
+
+    <div class="socials">
+      <!-- Bluesky with custom SVG icon -->
+      <a href="https://bsky.app/profile/thermfox.dev" target="_blank" class="social-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="social-icon bi bi-bluesky" viewBox="0 0 16 16">
+          <path d="M3.468 1.948C5.303 3.325 7.276 6.118 8 7.616c.725-1.498 2.698-4.29 4.532-5.668C13.855.955 16 .186 16 2.632c0 .489-.28 4.105-.444 4.692-.572 2.04-2.653 2.561-4.504 2.246 3.236.551 4.06 2.375 2.281 4.2-3.376 3.464-4.852-.87-5.23-1.98-.07-.204-.103-.3-.103-.218 0-.081-.033.014-.102.218-.379 1.11-1.855 5.444-5.231 1.98-1.778-1.825-.955-3.65 2.28-4.2-1.85.315-3.932-.205-4.503-2.246C.28 6.737 0 3.12 0 2.632 0 .186 2.145.955 3.468 1.948"/>
+        </svg>
+        <span>bluesky!</span>
+      </a>
+
+      <a href="http://twitter.com/thermfox" target="_blank" class="social-link">
+        <i class="fab fa-x-twitter"></i>
+        <span>twitter!</span>
+      </a>
+
+      <a href="https://www.instagram.com/thermfox.dev" target="_blank" class="social-link">
+        <i class="fab fa-instagram"></i>
+        <span>instagram!</span>
+      </a>
+
+      <a href="https://www.tiktok.com/@thermfox" target="_blank" class="social-link">
+        <i class="fab fa-tiktok"></i>
+        <span>tiktok!</span>
+      </a>
+
+      <a href="https://t.me/thrmfx" target="_blank" class="social-link">
+        <i class="fab fa-telegram"></i>
+        <span>telegram!</span>
+      </a>
+    </div>
+
+    <footer>
+      Made with ❤️ by @thermfox • © 2026
+    </footer>
+  </div>
+</body>
+</html>
