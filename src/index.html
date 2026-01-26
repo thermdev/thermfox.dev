@@ -357,14 +357,14 @@ document.addEventListener('DOMContentLoaded', () => {
         obj.velY *= FRICTION;
 
         // Bounds
-        const bottom = window.innerHeight - obj.radius * 2;
-        if (obj.posY > bottom) {
-          obj.posY = bottom;
-          obj.velY *= -BOUNCE_DAMPING;
-          obj.velX *= FRICTION; // No extra damping on X
-          obj.el.style.transform = `scale(1.12, 0.82) rotate(${Math.random() * 30 - 15}deg)`;
-          setTimeout(() => obj.el.style.transform = 'scale(1) rotate(0deg)', 120);
-        }
+        const bottom = window.innerHeight - obj.radius;
+if (obj.posY > bottom) {
+  obj.posY = bottom;
+  obj.velY *= -BOUNCE_DAMPING;
+  obj.velX *= FRICTION; // No extra damping on X
+  obj.el.style.transform = `scale(1.12, 0.82) rotate(${Math.random() * 30 - 15}deg)`;
+  setTimeout(() => obj.el.style.transform = 'scale(1) rotate(0deg)', 120);
+}
 
         if (obj.posY < 0) {
           obj.posY = 0;
