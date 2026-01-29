@@ -1,0 +1,4 @@
+# mreow! :3
+
+User-agent: *
+Allow: /
